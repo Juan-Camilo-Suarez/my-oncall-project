@@ -1,0 +1,124 @@
+version: '3'
+
+services:
+  oncall-web:
+    build: .
+    hostname: oncall
+    ports:
+      - "8080:8080"
+      - "8001:8001"
+    environment:
+      - DOCKER_DB_BOOTSTRAP=1
+      - IRIS_API_HOST=iris
+    volumes:
+      - ./configs/config.docker.yaml:/home/oncall/config/config.yaml
+    networks:
+      - iris
+ 
+  blackbox-exporter:
+    image: quay.io/prometheus/blackbox-exporter:latest
+    ports:
+      - "9115:9115"
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    volumes:
+      - ./configs/blackbox.yml:/etc/blackbox_exporter/config.yml
+    networks:
+      - iris
+  
+    
+  my_exporter:
+    image: camilo2901/suarez-exporter:latest
+    networks:
+      - iris
+    restart: unless-stopped
+    ports:
+      - "9213:9213"
+              
+
+
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node_exporter
+    command:
+      - '--path.rootfs=/host'
+      - "--no-collector.udp_queues"
+      - "--no-collector.dmi"
+      - "--no-collector.nfs"
+      - "--no-collector.zfs"
+      - "--collector.textfile"
+      - "--collector.textfile.directory=/text_file_volume/"
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+    volumes:
+      - '/:/host:ro'  
+      - ./text_files:/text_file_volume
+    networks:
+        - iris
+
+
+  oncall-mysql:
+    hostname: oncall-mysql
+    image: mysql:5.7
+    environment:
+      - MYSQL_ROOT_PASSWORD=1234
+    networks:
+      - iris     
+
+  prometheus-oncall:
+    hostname: prometheus-oncall
+    image: prom/prometheus
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    networks:
+      - iris
+  
+  elasticsearch:
+    image: elasticsearch:7.16.1
+    volumes:
+      - ./configs/elasticsearch/config.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+      - ./docker_volumes/elasticsearch/data:/var/lib/elasticsearch/data
+    environment:
+      ES_JAVA_OPTS: "-Xmx512m -Xms512m"
+      ELASTIC_USERNAME: "elastic"
+      ELASTIC_PASSWORD: "MyPw123"
+      discovery.type: single-node
+    networks:
+      - elk
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+
+  logstash:
+    image: logstash:7.16.2
+    volumes:
+      - ./configs/logstash/config.yml:/usr/share/logstash/config/logstash.yml
+    environment:
+      LS_JAVA_OPTS: "-Xmx512m -Xms512m"
+    ports:
+      - "5044:5044"
+      - "5000:5000"
+      - "9600:9600"
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: kibana:7.16.1
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./configs/kibana/config.yml:/usr/share/kibana/config/kibana.yml
+    networks:
+      - elk
+    ports:
+      - "5601:5601"
+      
+networks:
+  iris:
+  elk:
+    driver: bridge
