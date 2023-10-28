@@ -82,6 +82,8 @@ services:
   
   elasticsearch:
     image: elasticsearch:7.16.1
+    labels:
+      - co.elastic.logs/enabled=false
     volumes:
       - ./configs/elasticsearch/config.yml:/usr/share/elasticsearch/config/elasticsearch.yml
       - ./docker_volumes/elasticsearch/data:/var/lib/elasticsearch/data
@@ -98,6 +100,8 @@ services:
 
   logstash:
     image: logstash:7.16.2
+    labels:
+      - co.elastic.logs/enabled=false
     volumes:
       - ./configs/logstash/config.yml:/usr/share/logstash/config/logstash.yml
       - ./configs/logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml
@@ -115,6 +119,8 @@ services:
 
   kibana:
     image: kibana:7.16.1
+    labels:
+      - co.elastic.logs/enabled=false # на тех контейнерах, с которых не хотим собирать логи
     depends_on:
       - elasticsearch
     volumes:
@@ -128,6 +134,7 @@ services:
     user: root
     image: elastic/filebeat:7.16.2
     container_name: filebeat
+    command: filebeat -e -strict.perms=false
     labels:
       - co.elastic.logs/enabled=false
     volumes:
@@ -138,6 +145,11 @@ services:
       - elk
     depends_on:
       - logstash
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
 
 networks:
   iris:

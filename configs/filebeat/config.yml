@@ -12,5 +12,11 @@ filebeat.autodiscover:
                 - /var/lib/docker/containers/${data.docker.container.id}/*.log
               exclude_lines: ["\\s+[\\-`('.|_]"]
 
+processors:
+  - dissect:
+      tokenizer: "%{timestamp} [%{status_code}] %{method} %{uri} %{ip_address} [%{uagent}] RT:%{msecs} REF:%{referer} SZ:%{size} %{proto}"
+      field: "message"
+      target_prefix: ""
+
 output.logstash:
   hosts: ["logstash:5044"]
