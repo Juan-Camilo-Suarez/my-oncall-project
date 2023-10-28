@@ -1,0 +1,16 @@
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      # hints.enabled: true
+      templates:
+        - condition:
+            equals:
+              docker.container.labels.co.elastic.logs/enabled: "true" # only send metrics with explicit hints
+          config:
+            - type: container
+              paths:
+                - /var/lib/docker/containers/${data.docker.container.id}/*.log
+              exclude_lines: ["\\s+[\\-`('.|_]"]
+
+output.logstash:
+  hosts: ["logstash:5044"]

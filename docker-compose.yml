@@ -4,6 +4,8 @@ services:
   oncall-web:
     build: .
     hostname: oncall
+    labels:
+      - co.elastic.logs/enabled=true
     ports:
       - "8080:8080"
       - "8001:8001"
@@ -61,6 +63,8 @@ services:
   oncall-mysql:
     hostname: oncall-mysql
     image: mysql:5.7
+    labels:
+      - co.elastic.logs/enabled=true
     environment:
       - MYSQL_ROOT_PASSWORD=1234
     networks:
@@ -96,6 +100,8 @@ services:
     image: logstash:7.16.2
     volumes:
       - ./configs/logstash/config.yml:/usr/share/logstash/config/logstash.yml
+      - ./configs/logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml
+      - ./configs/logstash/pipelines:/usr/share/logstash/config/pipelines
     environment:
       LS_JAVA_OPTS: "-Xmx512m -Xms512m"
     ports:
@@ -117,7 +123,22 @@ services:
       - elk
     ports:
       - "5601:5601"
-      
+    
+  beats:
+    user: root
+    image: elastic/filebeat:7.16.2
+    container_name: filebeat
+    labels:
+      - co.elastic.logs/enabled=false
+    volumes:
+      - ./configs/filebeat/config.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro  
+    networks:
+      - elk
+    depends_on:
+      - logstash
+
 networks:
   iris:
   elk:
