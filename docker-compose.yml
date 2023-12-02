@@ -89,13 +89,14 @@ services:
       - --alertmanager.url=http://alertmanager:9093
       - --log.level=info
       - --store=bolt
+      - --listen.addr=0.0.0.0:9097
       - --bolt.path=/data/bot.db
-      - --telegram.admin=6882705236
+      - --telegram.admin=975029829
       - --telegram.token=6882705236:AAHTMe5jfqE-ScJCdhWTIYIDoHj06cLgVKw
     image: metalmatze/alertmanager-bot:0.4.3
     user: root
     ports:
-      - 8085:8085
+      - 9097:9097
     container_name: alertmanager-bot
     hostname: alertmanager-bot
     environment:
