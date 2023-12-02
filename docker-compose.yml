@@ -74,9 +74,53 @@ services:
     hostname: prometheus-oncall
     image: prom/prometheus
     volumes:
-      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./configs:/etc/configs/
+    command:
+      - --config.file=/etc/configs/prometheus.yml
+    # volumes:
+    #   - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - 9090:9090
+    networks:
+      - iris
+
+  alertmanager-bot:
+    command:
+      - --alertmanager.url=http://alertmanager:9093
+      - --log.level=info
+      - --store=bolt
+      - --bolt.path=/data/bot.db
+      - --telegram.admin=6882705236
+      - --telegram.token=6882705236:AAHTMe5jfqE-ScJCdhWTIYIDoHj06cLgVKw
+    image: metalmatze/alertmanager-bot:0.4.3
+    user: root
+    ports:
+      - 8085:8085
+    container_name: alertmanager-bot
+    hostname: alertmanager-bot
+    environment:
+      TZ: "Europe/Moscow"
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    networks:
+      - iris
+
+  alertmanager:
+    image: prom/alertmanager:v0.21.0
+    user: root
+    ports:
+      - 9093:9093
+    volumes:
+      - ./configs/alertmanager/:/etc/alertmanager/
+    container_name: alertmanager
+    hostname: alertmanager
+    environment:
+      TZ: "Europe/Moscow"
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/etc/alertmanager/data'
     networks:
       - iris
   
