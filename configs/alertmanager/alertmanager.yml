@@ -1,0 +1,38 @@
+route:
+  receiver: 'alertmanager-bot'
+
+  routes:
+    # match critical
+    - match:
+        severity: 'critical'
+      receiver: 'critical-receiver'
+    # Ruta para alertas no críticas durante las horas de trabajo
+    - match:
+        severity: 'warning'
+      receiver: 'non-critical-work-hours-receiver'
+      # Condición de tiempo para las alertas no críticas
+      time_intervals:
+        - times:
+            - start_time: "09:00"
+              end_time: "18:00"
+          weekdays: ["monday", "tuesday", "wednesday", "thursday", "friday"]
+          location: Europe/Moscow
+
+receivers:
+  # default receptor
+  - name: 'alertmanager-bot'
+    webhook_configs:
+      - send_resolved: true
+        url: 'http://alertmanager-bot:9097'
+  # Receptor critical
+  - name: 'critical-receiver'
+    webhook_configs:
+      - send_resolved: true
+        url: 'http://alertmanager-bot:9097'
+
+  # Receptor warning
+  - name: 'non-critical-work-hours-receiver'
+    webhook_configs:
+      - send_resolved: true
+        url: 'http://alertmanager-bot:9097'
+
