@@ -7,7 +7,7 @@ services:
     labels:
       - co.elastic.logs/enabled=true
     ports:
-      - "8080:8080"
+      - "8080"
       - "8001:8001"
     environment:
       - DOCKER_DB_BOOTSTRAP=1
@@ -16,6 +16,32 @@ services:
       - ./configs/config.docker.yaml:/home/oncall/config/config.yaml
     networks:
       - iris
+
+  oncall-web-2:
+    build: .
+    hostname: oncall2
+    ports:
+      - "8080"
+      - "8002:8001"
+    environment:
+      - DOCKER_DB_BOOTSTRAP=1
+      - IRIS_API_HOST=iris
+    volumes:
+      - ./configs/config.docker.yaml:/home/oncall/config/config.yaml
+    networks:
+      - iris
+
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - oncall-web
+    ports:
+      - "8080:8080"
+    networks:
+        - iris
  
   blackbox-exporter:
     image: quay.io/prometheus/blackbox-exporter:latest
