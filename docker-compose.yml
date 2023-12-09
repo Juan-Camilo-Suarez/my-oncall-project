@@ -6,9 +6,6 @@ services:
     hostname: oncall
     labels:
       - co.elastic.logs/enabled=true
-    ports:
-      - "8080:8080"
-      - "8001:8001"
     environment:
       - DOCKER_DB_BOOTSTRAP=1
       - IRIS_API_HOST=iris
@@ -16,6 +13,19 @@ services:
       - ./configs/config.docker.yaml:/home/oncall/config/config.yaml
     networks:
       - iris
+    deploy:
+      replicas: 2
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - oncall-web  
+    ports:
+      - "8080:8080"
+    networks:
+        - iris
  
   blackbox-exporter:
     image: quay.io/prometheus/blackbox-exporter:latest
@@ -59,6 +69,28 @@ services:
     networks:
         - iris
 
+  telegraf:
+    image: telegraf
+    container_name: telegraf
+    restart: always
+    volumes:
+      - ./configs/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      - nginx
+    ports:
+      - "8125:8125"
+    networks:
+      - iris   
+  #
+  # prometheus_nginx:                                                                                                   
+  #    image: nginx/nginx-prometheus-exporter:1.0.0                                                                      
+  #    ports:                                                                                                            
+  #    - "9113:9113"                                                                                                     
+  #    command:                                                                                                          
+  #    - --nginx.scrape-uri=http://158.160.122.18:8080/stub_status
+  #    networks:
+  #        - iris
+
 
   oncall-mysql:
     hostname: oncall-mysql
@@ -84,107 +116,107 @@ services:
     networks:
       - iris
 
-  alertmanager-bot:
-    command:
-      - --alertmanager.url=http://alertmanager:9093
-      - --log.level=info
-      - --store=bolt
-      - --listen.addr=0.0.0.0:9097
-      - --bolt.path=/data/bot.db
-      - --telegram.admin=975029829
-      - --telegram.token=6882705236:AAHTMe5jfqE-ScJCdhWTIYIDoHj06cLgVKw
-    image: metalmatze/alertmanager-bot:0.4.3
-    user: root
-    ports:
-      - 9097:9097
-    container_name: alertmanager-bot
-    hostname: alertmanager-bot
-    environment:
-      TZ: "Europe/Moscow"
-    restart: unless-stopped
-    volumes:
-      - ./data:/data
-    networks:
-      - iris
-
-  alertmanager:
-    image: prom/alertmanager:v0.21.0
-    user: root
-    ports:
-      - 9093:9093
-    volumes:
-      - ./configs/alertmanager/:/etc/alertmanager/
-    container_name: alertmanager
-    hostname: alertmanager
-    environment:
-      TZ: "Europe/Moscow"
-    restart: unless-stopped
-    command:
-      - '--config.file=/etc/alertmanager/alertmanager.yml'
-      - '--storage.path=/etc/alertmanager/data'
-    networks:
-      - iris
+  # alertmanager-bot:
+  #   command:
+  #     - --alertmanager.url=http://alertmanager:9093
+  #     - --log.level=info
+  #     - --store=bolt
+  #     - --listen.addr=0.0.0.0:9097
+  #     - --bolt.path=/data/bot.db
+  #     - --telegram.admin=975029829
+  #     - --telegram.token=6882705236:AAHTMe5jfqE-ScJCdhWTIYIDoHj06cLgVKw
+  #   image: metalmatze/alertmanager-bot:0.4.3
+  #   user: root
+  #   ports:
+  #     - 9097:9097
+  #   container_name: alertmanager-bot
+  #   hostname: alertmanager-bot
+  #   environment:
+  #     TZ: "Europe/Moscow"
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./data:/data
+  #   networks:
+  #     - iris
+  #
+  # alertmanager:
+  #   image: prom/alertmanager:v0.21.0
+  #   user: root
+  #   ports:
+  #     - 9093:9093
+  #   volumes:
+  #     - ./configs/alertmanager/:/etc/alertmanager/
+  #   container_name: alertmanager
+  #   hostname: alertmanager
+  #   environment:
+  #     TZ: "Europe/Moscow"
+  #   restart: unless-stopped
+  #   command:
+  #     - '--config.file=/etc/alertmanager/alertmanager.yml'
+  #     - '--storage.path=/etc/alertmanager/data'
+  #   networks:
+  #     - iris
   
-  elasticsearch:
-    image: elasticsearch:7.16.1
-    volumes:
-      - ./configs/elasticsearch/config.yml:/usr/share/elasticsearch/config/elasticsearch.yml
-      - ./docker_volumes/elasticsearch/data:/var/lib/elasticsearch/data
-    environment:
-      ES_JAVA_OPTS: "-Xmx512m -Xms512m"
-      ELASTIC_USERNAME: "elastic"
-      ELASTIC_PASSWORD: "MyPw123"
-      discovery.type: single-node
-    networks:
-      - elk
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-
-  logstash:
-    image: logstash:7.16.2
-    volumes:
-      - ./configs/logstash/config.yml:/usr/share/logstash/config/logstash.yml
-      - ./configs/logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml
-      - ./configs/logstash/pipelines:/usr/share/logstash/config/pipelines
-    environment:
-      LS_JAVA_OPTS: "-Xmx512m -Xms512m"
-    ports:
-      - "5044:5044"
-      - "5000:5000"
-      - "9600:9600"
-    networks:
-      - elk
-    depends_on:
-      - elasticsearch
-
-  kibana:
-    image: kibana:7.16.1
-    depends_on:
-      - elasticsearch
-    volumes:
-      - ./configs/kibana/config.yml:/usr/share/kibana/config/kibana.yml
-    networks:
-      - elk
-    ports:
-      - "5601:5601"
-    
-  beats:
-    user: root
-    image: elastic/filebeat:7.16.2
-    container_name: filebeat
-    labels:
-      - co.elastic.logs/enabled=false
-    volumes:
-      - ./configs/filebeat/config.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro  
-    networks:
-      - elk
-    depends_on:
-      - logstash
+  # elasticsearch:
+  #   image: elasticsearch:7.16.1
+  #   volumes:
+  #     - ./configs/elasticsearch/config.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+  #     - ./docker_volumes/elasticsearch/data:/var/lib/elasticsearch/data
+  #   environment:
+  #     ES_JAVA_OPTS: "-Xmx512m -Xms512m"
+  #     ELASTIC_USERNAME: "elastic"
+  #     ELASTIC_PASSWORD: "MyPw123"
+  #     discovery.type: single-node
+  #   networks:
+  #     - elk
+  #   ports:
+  #     - "9200:9200"
+  #     - "9300:9300"
+  #
+  # logstash:
+  #   image: logstash:7.16.2
+  #   volumes:
+  #     - ./configs/logstash/config.yml:/usr/share/logstash/config/logstash.yml
+  #     - ./configs/logstash/pipelines.yml:/usr/share/logstash/config/pipelines.yml
+  #     - ./configs/logstash/pipelines:/usr/share/logstash/config/pipelines
+  #   environment:
+  #     LS_JAVA_OPTS: "-Xmx512m -Xms512m"
+  #   ports:
+  #     - "5044:5044"
+  #     - "5000:5000"
+  #     - "9600:9600"
+  #   networks:
+  #     - elk
+  #   depends_on:
+  #     - elasticsearch
+  #
+  # kibana:
+  #   image: kibana:7.16.1
+  #   depends_on:
+  #     - elasticsearch
+  #   volumes:
+  #     - ./configs/kibana/config.yml:/usr/share/kibana/config/kibana.yml
+  #   networks:
+  #     - elk
+  #   ports:
+  #     - "5601:5601"
+  #   
+  # beats:
+  #   user: root
+  #   image: elastic/filebeat:7.16.2
+  #   container_name: filebeat
+  #   labels:
+  #     - co.elastic.logs/enabled=false
+  #   volumes:
+  #     - ./configs/filebeat/config.yml:/usr/share/filebeat/filebeat.yml:ro
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #     - /var/lib/docker/containers:/var/lib/docker/containers:ro  
+  #   networks:
+  #     - elk
+  #   depends_on:
+  #     - logstash
 
 networks:
   iris:
-  elk:
-    driver: bridge
+  # elk:
+  #   driver: bridge
