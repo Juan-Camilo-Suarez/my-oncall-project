@@ -69,14 +69,27 @@ services:
     networks:
         - iris
 
-  prometheus_nginx:                                                                                                   
-    image: nginx/nginx-prometheus-exporter:1.0.0                                                                      
-    ports:                                                                                                            
-    - "9113:9113"                                                                                                     
-    command:                                                                                                          
-    - --nginx.scrape-uri=http://158.160.122.18:8080/stub_status
+  telegraf:
+    image: telegraf
+    container_name: telegraf
+    restart: always
+    volumes:
+      - ./configs/telegraf.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      - nginx
+    ports:
+      - "8125:8125"
     networks:
-        - iris
+      - iris   
+  #
+  # prometheus_nginx:                                                                                                   
+  #    image: nginx/nginx-prometheus-exporter:1.0.0                                                                      
+  #    ports:                                                                                                            
+  #    - "9113:9113"                                                                                                     
+  #    command:                                                                                                          
+  #    - --nginx.scrape-uri=http://158.160.122.18:8080/stub_status
+  #    networks:
+  #        - iris
 
 
   oncall-mysql:
